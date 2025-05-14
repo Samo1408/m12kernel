@@ -6,10 +6,10 @@
 #
 
 # << If unset, you can override if u want
-[ -z $IS_CI ] && IS_CI=false
+[ -z $IS_CI ] && IS_CI=true
 [ -z $DO_CLEAN ] && DO_CLEAN=false
 [ -z $LTO ] && LTO=none
-[ -z $DEFAULT_KSU_REPO ] && DEFAULT_KSU_REPO="https://github.com/KernelSU-Next/KernelSU-Next/next-susfs/kernel/setup.sh"
+[ -z $DEFAULT_KSU_REPO ] && DEFAULT_KSU_REPO="https://github.com/KernelSU-Next/KernelSU-Next/next-susfs-dev/kernel/setup.sh"
 [ -z $DEFAULT_AK3_REPO ] && DEFAULT_AK3_REPO="https://github.com/rsuntk/AnyKernel3.git"
 [ -z $DEVICE ] && DEVICE="Unknown"
 [ -z $IMAGE ] && IMAGE="$(pwd)/out/arch/arm64/boot/Image"
@@ -136,7 +136,7 @@ else
 	[ $# != 4 ] && usage;
 fi
 
-[ "$KERNELSU" = "true" ] && curl -LSs $DEFAULT_KSU_REPO | bash -s next-susfs || pr_info "KernelSU is disabled. Add 'KERNELSU=true' or 'export KERNELSU=true' to enable"
+[ "$KERNELSU" = "true" ] && curl -LSs $DEFAULT_KSU_REPO | bash -s next-susfs-dev
 
 BUILD_TARGET="$1"
 FIRST_JOB="$2"
@@ -293,11 +293,6 @@ if [ "$BUILD" = "kernel" ]; then
 	[ "$KERNELSU" = "true" ] && setconfig enable KSU
 	[ "$LTO" != "none" ] && handle_lto || pr_info "LTO not set";
 	make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS`
-	if [ -e $IMAGE ]; then
-		pr_post_build "completed"
-		post_build
-	else
-		pr_post_build "failed"
 	fi
 elif [ "$BUILD" = "defconfig" ]; then
 	make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS` `echo $BUILD_DEFCONFIG`

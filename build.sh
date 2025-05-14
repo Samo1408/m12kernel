@@ -27,6 +27,7 @@ ARCH=arm64
 "
 export ARCH=arm64
 export CLANG_TRIPLE=aarch64-linux-gnu-
+export KERNELSU=true
 # end of default args
 
 pr_invalid() {

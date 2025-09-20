@@ -1,24 +1,29 @@
+
 #! /usr/bin/env bash
+
 
 #
 # Rissu Kernel Project
 # A special build script for Rissu's kernel
 #
 
+
 # << If unset, you can override if u want
 [ -z $IS_CI ] && IS_CI=true
 [ -z $DO_CLEAN ] && DO_CLEAN=false
 [ -z $LTO ] && LTO=none
-[ -z $DEFAULT_KSU_REPO ] && DEFAULT_KSU_REPO="https://github.com/KernelSU-Next/KernelSU-Next/next-susfs-dev/kernel/setup.sh"
+[ -z $DEFAULT_KSU_REPO ] && DEFAULT_KSU_REPO="https://raw.githubusercontent.com/Samo1408/KernelSU-Next/next-susfs-new/kernel/setup.sh"
 [ -z $DEFAULT_AK3_REPO ] && DEFAULT_AK3_REPO="https://github.com/rsuntk/AnyKernel3.git"
-[ -z $DEVICE ] && DEVICE="Unknown"
+[ -z $DEVICE ] && DEVICE="M127G"
 [ -z $IMAGE ] && IMAGE="$(pwd)/out/arch/arm64/boot/Image"
+
 
 # special rissu's path. linked to his toolchains
 if [ -d /rsuntk ]; then
 	export CROSS_COMPILE=/rsuntk/toolchains/google/bin/aarch64-linux-android-
 	export PATH=/rsuntk/toolchains/clang-12/bin:$PATH
 fi
+
 
 # start of default args
 DEFAULT_ARGS="
@@ -29,6 +34,7 @@ export ARCH=arm64
 export CLANG_TRIPLE=aarch64-linux-gnu-
 export KERNELSU=true
 # end of default args
+
 
 pr_invalid() {
 	echo -e "[-] Invalid args: $@"

@@ -1,15 +1,3 @@
-
-#! /usr/bin/env bash
-
-
-#
-# Rissu Kernel Project
-# A special build script for Rissu's kernel
-#
-
-
-
-# << If unset, you can override if u want
 [ -z $IS_CI ] && IS_CI=true
 [ -z $DO_CLEAN ] && DO_CLEAN=false
 [ -z $LTO ] && LTO=thin
@@ -309,7 +297,8 @@ if [ "$BUILD" = "kernel" ]; then
     # Step 1: Run defconfig
     make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS` `echo $BUILD_DEFCONFIG`
     if [ $? -ne 0 ]; then
-        pr_post_build "defconfig failed" || exit 1
+        pr_post_build "defconfig failed"
+        exit 1
     fi
     
     # Step 2: Configure KSU if enabled
@@ -318,19 +307,26 @@ if [ "$BUILD" = "kernel" ]; then
     # Step 3: Configure LTO if not none
     [ "$LTO" != "none" ] && handle_lto || pr_info "LTO not set"
     
-    # Step 4: إضافة إعدادات VDSO لتجنب الأخطاء
-    setconfig enable GENERIC_TIME_VSYSCALL
-    setconfig enable GENERIC_VDSO_TIME_NS
-    setconfig enable ARM64_ARCH_TIMER
-    
-    # Step 5: Build the kernel مع وسائط إضافية
-    make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS` \
-        V=1  # أضف V=1 لرؤية output مفصل عند الخطأ
+    # Step 4: Build the kernel
+    make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS`
     
     # Check if build was successful
     if [ $? -eq 0 ]; then
         pr_post_build "success"
         post_build
     else
-        pr_post_build "failed" || exit 1
+        pr_post_build "failed"
+        exit 1
     fi
+    
+elif [ "$BUILD" = "defconfig" ]; then
+    make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS` `echo $BUILD_DEFCONFIG`
+    
+    # Check if defconfig was successful
+    if [ $? -eq 0 ]; then
+        pr_post_build "defconfig success"
+    else
+        pr_post_build "defconfig failed"
+        exit 1
+    fi
+fi

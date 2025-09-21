@@ -318,8 +318,14 @@ if [ "$BUILD" = "kernel" ]; then
     # Step 3: Configure LTO if not none
     [ "$LTO" != "none" ] && handle_lto || pr_info "LTO not set"
     
-    # Step 4: Build the kernel
-    make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS`
+    # Step 4: إضافة إعدادات VDSO لتجنب الأخطاء
+    setconfig enable GENERIC_TIME_VSYSCALL
+    setconfig enable GENERIC_VDSO_TIME_NS
+    setconfig enable ARM64_ARCH_TIMER
+    
+    # Step 5: Build the kernel مع وسائط إضافية
+    make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS` \
+        V=1  # أضف V=1 لرؤية output مفصل عند الخطأ
     
     # Check if build was successful
     if [ $? -eq 0 ]; then
@@ -328,14 +334,3 @@ if [ "$BUILD" = "kernel" ]; then
     else
         pr_post_build "failed" || exit 1
     fi
-    
-elif [ "$BUILD" = "defconfig" ]; then
-    make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS` `echo $BUILD_DEFCONFIG`
-    
-    # Check if defconfig was successful
-    if [ $? -eq 0 ]; then
-        pr_post_build "defconfig success"
-    else
-        pr_post_build "defconfig failed" || exit 1
-    fi
-fi

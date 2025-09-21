@@ -12,7 +12,7 @@
 # << If unset, you can override if u want
 [ -z $IS_CI ] && IS_CI=true
 [ -z $DO_CLEAN ] && DO_CLEAN=false
-[ -z $LTO ] && LTO=none
+[ -z $LTO ] && LTO=thin
 [ -z $DEFAULT_KSU_REPO ] && DEFAULT_KSU_REPO="https://raw.githubusercontent.com/Samo1408/KernelSU-Next/next-susfs-new/kernel/setup.sh"
 [ -z $DEFAULT_AK3_REPO ] && DEFAULT_AK3_REPO="https://github.com/Samo141988/AnyKernel3.git"
 [ -z $DEVICE ] && DEVICE="M127G"

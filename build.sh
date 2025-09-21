@@ -1,29 +1,39 @@
-[ -z $IS_CI ] && IS_CI=true
+#! /usr/bin/env bash
+
+#
+# Rissu Kernel Project
+# A special build script for Rissu's kernel
+#
+
+# << If unset, you can override if u want
+[ -z $IS_CI ] && IS_CI=false
 [ -z $DO_CLEAN ] && DO_CLEAN=false
 [ -z $LTO ] && LTO=thin
-[ -z $DEFAULT_KSU_REPO ] && DEFAULT_KSU_REPO="https://raw.githubusercontent.com/Samo1408/KernelSU-Next/next-susfs-new/kernel/setup.sh"
-[ -z $DEFAULT_AK3_REPO ] && DEFAULT_AK3_REPO="https://github.com/Samo141988/AnyKernel3.git"
+[ -z $DEFAULT_KSU_REPO ] && DEFAULT_KSU_REPO="https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh"
+[ -z $DEFAULT_KSU_BRANCH ] && DEFAULT_KSU_BRANCH="main"
+[ -z $DEFAULT_AK3_REPO ] && DEFAULT_AK3_REPO="https://github.com/rsuntk/AnyKernel3.git"
 [ -z $DEVICE ] && DEVICE="M127G"
 [ -z $IMAGE ] && IMAGE="$(pwd)/out/arch/arm64/boot/Image"
-
 
 # special rissu's path. linked to his toolchains
 if [ -d /rsuntk ]; then
 	export CROSS_COMPILE=/rsuntk/toolchains/google/bin/aarch64-linux-android-
 	export PATH=/rsuntk/toolchains/clang-12/bin:$PATH
 fi
-
+# color variable
+N='\033[0m'
+R='\033[1;31m'
+G='\033[1;32m'
 
 # start of default args
 DEFAULT_ARGS="
 CONFIG_SECTION_MISMATCH_WARN_ONLY=y
+KCFLAGS=-w
 ARCH=arm64
 "
 export ARCH=arm64
 export CLANG_TRIPLE=aarch64-linux-gnu-
-export KERNELSU=true
 # end of default args
-
 
 pr_invalid() {
 	echo -e "[-] Invalid args: $@"
@@ -35,6 +45,10 @@ pr_err() {
 }
 pr_info() {
 	echo -e "[+] $@"
+}
+pr_step() {
+	echo "[$1 / $2] $3"
+ 	sleep 2
 }
 strip() { # fmt: strip <module>
 	llvm-strip $@ --strip-unneeded
@@ -74,11 +88,8 @@ fi
 }
 usage() {
 	echo -e "Usage: bash `basename $0` <build_target> <-j | --jobs> <(job_count)> <defconfig>"
-	printf "\tbuild_target: dirty, kernel, config, clean\n"
+	printf "\tbuild_target: dirty, kernel, defconfig, clean\n"
 	printf "\t-j or --jobs: <int>\n"
-	
-	[ -d arch/$ARCH/configs ] && printf "\tavailable defconfig: `ls arch/arm64/configs`\n"
-	
 	echo ""
 	printf "NOTE: Run: \texport CROSS_COMPILE=\"<PATH_TO_ANDROID_CC>\"\n"
 	printf "\t\texport PATH=\"<PATH_TO_LLVM>\"\n"
@@ -90,6 +101,16 @@ usage() {
 	printf "\tLLVM: Use all llvm toolchains to build: (opt: 1)\n"
 	printf "\tLLVM_IAS: Use llvm integrated assembler: (opt: 1)\n"
 	exit;
+}
+
+BUILD_TARGET="$1"
+pr_post_build() {
+	echo ""
+	[ "$@" = "failed" ] && echo -e "${R}#### Failed to build some targets ($BUILD_TARGET) ####${N}" ||	echo -e "${G}#### Build completed at `date` ####${N}"
+	echo ""
+	echo "======================================================="
+	[ -e $IMAGE ] && strings $IMAGE | grep "Linux version" || exit
+	echo "======================================================="
 }
 
 # if first arg starts with "clean"
@@ -109,7 +130,7 @@ elif [[ "$1" = "dirty" ]]; then
 	if [ $# -gt 3 ]; then
 		pr_err "Excess argument, only need three argument."
 	fi	
-	pr_err "Starting dirty build"
+	pr_info "Starting dirty build"
 	FIRST_JOB="$2"
 	JOB_COUNT="$3"
 	if [ "$FIRST_JOB" = "-j" ] || [ "$FIRST_JOB" = "--jobs" ]; then
@@ -122,6 +143,7 @@ elif [[ "$1" = "dirty" ]]; then
 		pr_invalid $2
 	fi
 	make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS`
+	[ ! -e $IMAGE ] && pr_post_build "failed" || pr_post_build "completed"
 elif [[ "$1" = "ak3" ]]; then
 	if [ $# -gt 1 ]; then
 		pr_err "Excess argument, only need one argument."
@@ -131,9 +153,8 @@ else
 	[ $# != 4 ] && usage;
 fi
 
-[ "$KERNELSU" = "true" ] && curl -LSs $DEFAULT_KSU_REPO | bash -s next-susfs-new
+[ "$KERNELSU" = "true" ] && curl -LSs $DEFAULT_KSU_REPO | bash -s `echo $DEFAULT_KSU_BRANCH` || pr_info "KernelSU is disabled. Add 'KERNELSU=true' or 'export KERNELSU=true' to enable"
 
-BUILD_TARGET="$1"
 FIRST_JOB="$2"
 JOB_COUNT="$3"
 DEFCONFIG="$4"
@@ -180,45 +201,28 @@ fi
 
 pr_sum() {
 	[ -z $KBUILD_BUILD_USER ] && KBUILD_BUILD_USER="`whoami`"
-	[ -z $KBUILD_BUILD_HOST ] && KBUILD_BUILD_HOST="`hostname`"
-	
+	[ -z $KBUILD_BUILD_HOST ] && KBUILD_BUILD_HOST="`uname -n`"
+ 	pr_step "1" "3" "Starting build with Rissu's build script ..."
 	echo ""
+	echo "======================================================="
 	echo -e "Host Arch: `uname -m`"
 	echo -e "Host Kernel: `uname -r`"
-	echo -e "Host gnumake: `make -v | grep -e "GNU Make"`"
-	echo ""
-	echo -e "Linux version: `make kernelversion`"
+	echo -e "Host GNUMake: `make -v | grep -e "GNU Make"`"
 	echo -e "Kernel builder user: $KBUILD_BUILD_USER"
 	echo -e "Kernel builder host: $KBUILD_BUILD_HOST"
+	printf "\n"
+	echo -e "Linux version: `make kernelversion`"
 	echo -e "Build date: `date`"
 	echo -e "Build target: `echo $BUILD`"
-	echo -e "Arch: $ARCH"
-	echo -e "Defconfig: $BUILD_DEFCONFIG"
-	echo -e "Allocated core: $ALLOC_JOB"
-	echo ""
-	echo -e "LLVM: $LLVM_"
-	echo -e "LLVM_IAS: $LLVM_IAS_"
-	echo ""
+	echo -e "Build arch: $ARCH"
+	echo -e "Target Defconfig: $BUILD_DEFCONFIG"
+	echo -e "Allocated core(s): $ALLOC_JOB"
+	printf "\n"
 	echo -e "LTO: $LTO"
-	echo ""
+	echo "======================================================="
 }
-
-pr_post_build() {
-    echo ""
-    echo -e "## Build $@ at `date` ##"
-    echo ""
-    [ "$1" = "failed" ] && return 1
-    return 0
-}
-
-# قم بإزالة هذه الأسطر التي وضعتها في المكان الخطأ:
-# وفي الأماكن التي تستدعيها:
-# if [ $? -ne 0 ]; then
-#     pr_post_build "defconfig failed" || exit 1
-# fi
 
 post_build_clean() {
-    # ... باقي الدالة بدون تغيير
 	if [ -e $AK3 ]; then
 		rm -rf $AK3/Image
 		rm -rf $AK3/modules/vendor/lib/modules/*.ko
@@ -242,20 +246,16 @@ post_build() {
 	
 	AK3="$(pwd)/AnyKernel3"
 	DATE=$(date +'%Y%m%d%H%M%S')
-	ZIP_FMT="AnyKernel3-`echo $DEVICE`_$GITSHA-$DATE"
+	ZIP_FMT="AnyKernel3-`make kernelversion`-`echo $DEVICE`_$GITSHA-$DATE"
 	
 	clone_ak3;
 	if [ -d $AK3 ]; then
 		echo "- Creating AnyKernel3"
 		gen_getutsrelease;
-		if [ -d $(pwd)/out ]; then
-			gcc -D__OUT__ -CC utsrelease.c -o getutsrel
-		else
-			gcc -CC utsrelease.c -o getutsrel
-		fi
+		[ -d $(pwd)/out ] && gcc -D__OUT__ -CC utsrelease.c -o getutsrel || gcc -CC utsrelease.c -o getutsrel
 		UTSRELEASE=$(./getutsrel)
 		sed -i "s/kernel\.string=.*/kernel.string=$UTSRELEASE/" "$AK3/anykernel.sh"
-		sed -i "s/BLOCK=.*/BLOCK=\/dev\/block\/platform\/12100000.dwmmc0\/by-name\/boot;/" "$AK3/anykernel.sh"
+		sed -i "s/BLOCK=.*/BLOCK=\/dev\/block\/platform\/bootdevice\/by-name\/boot;/" "$AK3/anykernel.sh"
 		cp $IMAGE $AK3
 		cd $AK3
 		zip -r9 ../`echo $ZIP_FMT`.zip *
@@ -266,7 +266,7 @@ post_build() {
 			post_build_clean;
 		fi
 		cd ..
-		pr_err "Build done. Thanks for using this build script :)"
+		pr_step "3" "3" "Build script ended."
 	fi
 }
 
@@ -291,42 +291,18 @@ handle_lto() {
 }
 # call summary
 pr_sum
-
-# الكود المصحح
 if [ "$BUILD" = "kernel" ]; then
-    # Step 1: Run defconfig
-    make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS` `echo $BUILD_DEFCONFIG`
-    if [ $? -ne 0 ]; then
-        pr_post_build "defconfig failed"
-        exit 1
-    fi
-    
-    # Step 2: Configure KSU if enabled
-    [ "$KERNELSU" = "true" ] && setconfig enable KSU
-    
-    # Step 3: Configure LTO if not none
-    [ "$LTO" != "none" ] && handle_lto || pr_info "LTO not set"
-    
-    # Step 4: Build the kernel
-    make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS`
-    
-    # Check if build was successful
-    if [ $? -eq 0 ]; then
-        pr_post_build "success"
-        post_build
-    else
-        pr_post_build "failed"
-        exit 1
-    fi
-    
+	pr_step "2" "3" "Building targets ($BUILD) with lto=$LTO @ $ALLOC_JOB job(s)"
+	make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS` `echo $BUILD_DEFCONFIG`
+	[ "$KERNELSU" = "true" ] && setconfig enable KSU
+	[ "$LTO" != "none" ] && handle_lto || pr_info "LTO not set";
+	make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS`
+	if [ -e $IMAGE ]; then
+		pr_post_build "completed"
+		post_build
+	else
+		pr_post_build "failed"
+	fi
 elif [ "$BUILD" = "defconfig" ]; then
-    make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS` `echo $BUILD_DEFCONFIG`
-    
-    # Check if defconfig was successful
-    if [ $? -eq 0 ]; then
-        pr_post_build "defconfig success"
-    else
-        pr_post_build "defconfig failed"
-        exit 1
-    fi
+	make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS` `echo $BUILD_DEFCONFIG`
 fi

@@ -216,13 +216,21 @@ pr_sum() {
 }
 
 pr_post_build() {
-	echo ""
-	echo -e "## Build $@ at `date` ##"
-	echo ""
-	[ "$@" = "failed" ] && exit
+    echo ""
+    echo -e "## Build $@ at `date` ##"
+    echo ""
+    [ "$1" = "failed" ] && return 1
+    return 0
 }
 
+# قم بإزالة هذه الأسطر التي وضعتها في المكان الخطأ:
+# وفي الأماكن التي تستدعيها:
+# if [ $? -ne 0 ]; then
+#     pr_post_build "defconfig failed" || exit 1
+# fi
+
 post_build_clean() {
+    # ... باقي الدالة بدون تغيير
 	if [ -e $AK3 ]; then
 		rm -rf $AK3/Image
 		rm -rf $AK3/modules/vendor/lib/modules/*.ko
@@ -295,12 +303,39 @@ handle_lto() {
 }
 # call summary
 pr_sum
+
+# الكود المصحح
 if [ "$BUILD" = "kernel" ]; then
-	make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS` `echo $BUILD_DEFCONFIG`
-	[ "$KERNELSU" = "true" ] && setconfig enable KSU
-	[ "$LTO" != "none" ] && handle_lto || pr_info "LTO not set";
-	make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS`
-	fi
+    # Step 1: Run defconfig
+    make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS` `echo $BUILD_DEFCONFIG`
+    if [ $? -ne 0 ]; then
+        pr_post_build "defconfig failed" || exit 1
+    fi
+    
+    # Step 2: Configure KSU if enabled
+    [ "$KERNELSU" = "true" ] && setconfig enable KSU
+    
+    # Step 3: Configure LTO if not none
+    [ "$LTO" != "none" ] && handle_lto || pr_info "LTO not set"
+    
+    # Step 4: Build the kernel
+    make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS`
+    
+    # Check if build was successful
+    if [ $? -eq 0 ]; then
+        pr_post_build "success"
+        post_build
+    else
+        pr_post_build "failed" || exit 1
+    fi
+    
 elif [ "$BUILD" = "defconfig" ]; then
-	make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS` `echo $BUILD_DEFCONFIG`
+    make -j`echo $ALLOC_JOB` -C $(pwd) O=$(pwd)/out `echo $DEFAULT_ARGS` `echo $BUILD_DEFCONFIG`
+    
+    # Check if defconfig was successful
+    if [ $? -eq 0 ]; then
+        pr_post_build "defconfig success"
+    else
+        pr_post_build "defconfig failed" || exit 1
+    fi
 fi

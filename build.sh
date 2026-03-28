@@ -10,16 +10,17 @@ set -e  # توقف عند أول خطأ
 [ -z "$IS_CI" ] && IS_CI=false
 [ -z "$DO_CLEAN" ] && DO_CLEAN=false
 [ -z "$LTO" ] && LTO=thin
-[ -z "$DEFAULT_KSU_REPO" ] && DEFAULT_KSU_REPO="https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh"
-[ -z "$DEFAULT_KSU_BRANCH" ] && DEFAULT_KSU_BRANCH="main"
+[ -z "$DEFAULT_KSU_REPO" ] && DEFAULT_KSU_REPO="https://raw.githubusercontent.com/Samo1408/KernelSU/legacy/kernel/setup.sh"
+[ -z "$DEFAULT_KSU_BRANCH" ] && DEFAULT_KSU_BRANCH="legacy"
 [ -z "$DEFAULT_AK3_REPO" ] && DEFAULT_AK3_REPO="https://github.com/rsuntk/AnyKernel3.git"
 [ -z "$DEVICE" ] && DEVICE="M127G"
 [ -z "$IMAGE" ] && IMAGE="$(pwd)/out/arch/arm64/boot/Image"
 
-# special rissu's path. linked to his toolchains
-if [ -d /rsuntk ]; then
-	export CROSS_COMPILE=/rsuntk/toolchains/google/bin/aarch64-linux-android-
-	export PATH=/rsuntk/toolchains/clang-12/bin:$PATH
+if [ -d /samo141988 ]; then
+	export CROSS_COMPILE=/samo141988/toolchains/google/bin/aarch64-linux-android-
+ 	export CROSS_COMPILE_COMPAT=/samo141988/toolchains/arm/bin/arm-linux-gnueabi-
+	export CROSS_COMPILE_ARM32=$CROSS_COMPILE_COMPAT
+ 	export PATH=/samo141988/toolchains/clang-20/bin:$PATH
 fi
 
 # color variable
